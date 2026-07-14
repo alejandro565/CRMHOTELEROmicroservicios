@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased bg-brand-50 text-surface-900 font-sans;
+    overflow-y: overlay;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading text-surface-900 tracking-tight;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/60 backdrop-blur-md border border-white/40 shadow-xl;
+  }
+  .glass-dark {
+    @apply bg-surface-900/60 backdrop-blur-xl border border-surface-700/50 shadow-2xl;
+  }
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-lg border border-white/50 shadow-sm transition-all duration-300;
+  }
+  .glass-card:hover {
+    @apply bg-white shadow-md border-brand-200;
+  }
+
+  /* Animación delay utils */
+  .delay-75 { animation-delay: 75ms; }
+  .delay-100 { animation-delay: 100ms; }
+  .delay-150 { animation-delay: 150ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-500 { animation-delay: 500ms; }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-surface-300 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-surface-400;
+}

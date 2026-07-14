@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hotel CRM — API Test Panel v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #0a0b0f;
+    --surface: #11131a;
+    --border:  #ffffff0f;
+    --border2: #ffffff1a;
+    --text:    #e8eaf0;
+    --muted:   #6b7280;
+    --accent:  #6ee7b7;
+    --accent2: #818cf8;
+    --warn:    #fbbf24;
+    --danger:  #f87171;
+    --success: #4ade80;
+    --saas:    #6ee7b7;
+    --auth:    #818cf8;
+    --hotels:  #fb923c;
+    --guest:   #f472b6;
+    --res:     #38bdf8;
+    --billing: #facc15;
+    --audit:   #a78bfa;
+    --report:  #34d399;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; min-height: 100vh; }
+
+  header { padding: 20px 28px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: var(--text); white-space: nowrap; }
+  .logo span { color: var(--accent); }
+
+  .header-field { display: flex; align-items: center; gap: 6px; flex: 1; }
+  .header-field label { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .header-field input {
+    flex: 1; background: var(--surface); border: 1px solid var(--border2);
+    color: var(--text); padding: 5px 9px; border-radius: 5px;
+    font-family: inherit; font-size: 11px; min-width: 0;
+  }
+  .header-field input:focus { outline: none; border-color: var(--accent2); }
+
+  /* selection token indicator */
+  #selTokenBadge {
+    display: none; align-items: center; gap: 6px;
+    background: #1a1f2e; border: 1px solid #818cf840;
+    padding: 4px 10px; border-radius: 20px; font-size: 11px;
+    color: var(--accent2); white-space: nowrap;
+  }
+  #selTokenBadge.visible { display: flex; }
+
+  .layout { display: grid; grid-template-columns: 210px 1fr 360px; height: calc(100vh - 65px); }
+
+  nav { border-right: 1px solid var(--border); padding: 12px 0; overflow-y: auto; }
+  .nav-service { padding: 6px 14px 3px; font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; margin-top: 8px; }
+  .nav-btn { display: flex; align-items: center; gap: 7px; width: 100%; padding: 5px 14px; background: none; border: none; color: var(--muted); cursor: pointer; text-align: left; font-family: 'DM Mono', monospace; font-size: 11px; transition: all .15s; border-left: 2px solid transparent; position: relative; }
+  .nav-btn:hover { color: var(--text); background: #ffffff06; }
+  .nav-btn.active { color: var(--text); background: #ffffff08; border-left-color: currentColor; }
+  .color-bar { width: 3px; height: 100%; border-radius: 2px; position: absolute; left: 0; top: 0; opacity: 0; }
+  .nav-btn.active .color-bar { opacity: 1; }
+
+  .method-badge { font-size: 9px; font-weight: 500; padding: 1px 5px; border-radius: 3px; min-width: 32px; text-align: center; }
+  .GET    { background: #1a3a2a; color: var(--success); }
+  .POST   { background: #1e2440; color: var(--accent2); }
+  .PATCH  { background: #3a2a10; color: var(--warn); }
+  .PUT    { background: #2a1a10; color: #fb923c; }
+  .DELETE { background: #3a1a1a; color: var(--danger); }
+
+  main { overflow-y: auto; padding: 22px 24px; }
+  .endpoint-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 600; }
+  .endpoint-desc { color: var(--muted); margin-bottom: 18px; line-height: 1.6; font-size: 12px; }
+  .url-display { font-size: 11px; color: var(--muted); margin-bottom: 18px; padding: 7px 10px; background: var(--surface); border-radius: 5px; border: 1px solid var(--border); }
+  .url-display span { color: var(--accent2); }
+
+  .field-group { margin-bottom: 12px; }
+  .field-group label { display: block; color: var(--muted); margin-bottom: 4px; font-size: 11px; }
+  .field-group input, .field-group textarea, .field-group select {
+    width: 100%; background: var(--surface); border: 1px solid var(--border2);
+    color: var(--text); padding: 7px 9px; border-radius: 5px;
+    font-family: 'DM Mono', monospace; font-size: 11px; outline: none; transition: border-color .15s;
+  }
+  .field-group textarea { min-height: 90px; resize: vertical; }
+  .field-group input:focus, .field-group textarea:focus { border-color: var(--accent2); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .section-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin: 14px 0 8px; border-top: 1px solid var(--border); padding-top: 12px; }
+
+  .send-btn { display: inline-flex; align-items: center; gap: 7px; background: var(--accent2); color: #0a0b0f; border: none; padding: 8px 18px; border-radius: 5px; font-family: 'Syne', sans-serif; font-weight: 600; font-size: 12px; cursor: pointer; transition: opacity .15s; margin-top: 4px; }
+  .send-btn:hover { opacity: .85; }
+  .send-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  aside { border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .response-header { padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .response-title { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600; }
+  .status-pill { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .status-2xx { background: #1a3a2a; color: var(--success); }
+  .status-4xx { background: #3a1a1a; color: var(--danger); }
+  .status-5xx { background: #3a1010; color: var(--danger); }
+  .status-pending { background: #1e2440; color: var(--accent2); }
+  .response-time { color: var(--muted); font-size: 11px; }
+  .response-body { flex: 1; overflow-y: auto; padding: 12px 14px; font-size: 11px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; }
+
+  .history-bar { border-top: 1px solid var(--border); padding: 7px 14px; flex-shrink: 0; display: flex; gap: 5px; overflow-x: auto; align-items: center; }
+  .hist-pill { font-size: 10px; padding: 2px 7px; border-radius: 20px; cursor: pointer; border: 1px solid var(--border2); white-space: nowrap; color: var(--muted); transition: all .1s; }
+  .hist-pill:hover { color: var(--text); border-color: var(--text); }
+
+  .json-key    { color: #93c5fd; }
+  .json-string { color: var(--success); }
+  .json-number { color: var(--warn); }
+  .json-bool   { color: #f472b6; }
+  .json-null   { color: var(--muted); }
+
+  /* auto-capture banner */
+  .capture-banner { background: #1a2a1a; border: 1px solid #4ade8040; border-radius: 5px; padding: 7px 10px; margin-bottom: 12px; font-size: 11px; color: var(--success); display: none; }
+  .capture-banner.show { display: block; }
+
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">hotel<span>CRM</span> <span style="color:var(--muted);font-weight:400">· test panel v2</span></div>
+  <div class="header-field" style="max-width:200px">
+    <label>base</label>
+    <input id="baseUrl" value="http://localhost" placeholder="http://localhost">
+  </div>
+  <div class="header-field" style="max-width:340px">
+    <label>JWT</label>
+    <input id="jwtToken" placeholder="pega tu access token aquí…" type="text">
+  </div>
+  <div id="selTokenBadge">
+    🔑 selection_token activo
+    <button onclick="clearSelToken()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 2px">×</button>
+  </div>
+</header>
+
+<div class="layout">
+  <nav id="sidebar"></nav>
+  <main id="mainPanel">
+    <div style="color:var(--muted);padding-top:40px;text-align:center;font-size:12px">
+      Selecciona un endpoint del panel izquierdo
+    </div>
+  </main>
+  <aside>
+    <div class="response-header">
+      <span class="response-title">Respuesta</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="response-time" id="resTime"></span>
+        <span class="status-pill status-pending" id="statusPill">—</span>
+      </div>
+    </div>
+    <pre class="response-body" id="resBody">// la respuesta aparecerá aquí</pre>
+    <div class="history-bar" id="histBar">
+      <span style="color:var(--muted);font-size:10px;white-space:nowrap">historial</span>
+    </div>
+  </aside>
+</div>
+
+<script>
+// ── Selection token state ─────────────────────────────────────────────────────
+let _selectionToken = null;
+function setSelToken(t) {
+  _selectionToken = t;
+  document.getElementById('selTokenBadge').classList.add('visible');
+}
+function clearSelToken() {
+  _selectionToken = null;
+  document.getElementById('selTokenBadge').classList.remove('visible');
+}
+
+// ── SERVICES ──────────────────────────────────────────────────────────────────
+const SERVICES = [
+  // ── saas-service ────────────────────────────────────────────────────────────
+  {
+    id: 'saas', label: 'saas-service', color: 'saas', port: 3001,
+    endpoints: [
+      { id: 'list-plans', method: 'GET', path: '/saas/plans', label: 'Listar planes',
+        desc: 'Retorna el catálogo con max_hotels y max_rooms_per_hotel por plan.', fields: [] },
+      { id: 'create-plan', method: 'POST', path: '/saas/plans', label: 'Crear plan',
+        desc: 'Crea un plan con límite de hoteles y habitaciones por hotel.',
+        fields: [
+          { name: 'name',                label: 'Nombre',                  default: 'Multi-Hotel Pro' },
+          { name: 'price',               label: 'Precio (BOB)',            default: '399.00' },
+          { name: 'max_hotels',          label: 'max_hotels (0=ilimitado)', default: '5' },
+          { name: 'max_rooms_per_hotel', label: 'max_rooms_per_hotel',     default: '30' },
+          { name: 'module_ids', label: 'module_ids (JSON array)', textarea: true,
+            default: '["HOTELS", "GUESTS", "RESERVATIONS", "BILLING", "AUDIT", "REPORTING"]' },
+        ]
+      },
+      { id: 'list-modules', method: 'GET', path: '/saas/modules', label: 'Listar módulos',
+        desc: 'Lista todos los system_modules disponibles.', fields: [] },
+      { id: 'list-tenants', method: 'GET', path: '/saas/tenants', label: 'Listar hoteles',
+        desc: 'Lista todos los tenants activos. Filtra por ?owner_email= para ver los hoteles de un dueño.', fields: [] },
+      { id: 'create-tenant', method: 'POST', path: '/saas/tenants', label: 'Registrar hotel',
+        desc: 'Provisiona un hotel. Si el owner_email ya existe en auth-service, lo vincula al nuevo hotel (multi-hotel). Valida el límite max_hotels del plan.',
+        fields: [
+          { name: 'plan_id',         label: 'plan_id (UUID)',  default: '' },
+          { name: 'name',            label: 'Nombre hotel',    default: 'Hotel Costa Azul' },
+          { name: 'tax_id',          label: 'NIT',             default: '9876543' },
+          { name: 'owner_email',     label: 'Email dueño',     default: 'dueno@hoteles.com' },
+          { name: 'owner_full_name', label: 'Nombre dueño',    default: 'María González' },
+        ]
+      },
+      { id: 'suspend-tenant', method: 'PATCH', path: '/saas/tenants/:id/suspend', label: 'Suspender hotel',
+        desc: 'Suspende el hotel y revoca todas las sesiones de sus usuarios.',
+        fields: [
+          { name: ':id',    label: 'tenant_id', default: '' },
+          { name: 'reason', label: 'Razón',     default: 'Pago vencido' },
+        ]
+      },
+      { id: 'change-plan', method: 'PATCH', path: '/saas/tenants/:id/plan', label: 'Cambiar plan',
+        desc: 'Cambia el plan del hotel. Bloquea downgrade si el nuevo plan tiene menos slots que hoteles activos.',
+        fields: [
+          { name: ':id',     label: 'tenant_id',   default: '' },
+          { name: 'plan_id', label: 'new_plan_id', default: '' },
+        ]
+      },
+    ]
+  },
+
+  // ── auth-service ─────────────────────────────────────────────────────────────
+  {
+    id: 'auth', label: 'auth-service', color: 'auth', port: 3002,
+    endpoints: [
+      // ── Login flow ──────────────────────────────────────────────────────────
+      { id: 'login', method: 'POST', path: '/auth/login', label: '① Login',
+        desc: 'Autentica el usuario.\n\n• 1 hotel → devuelve accessToken directamente (se guarda en JWT bar).\n• N hoteles → devuelve requires_hotel_selection:true + selection_token (se guarda automáticamente en la barra verde).',
+        fields: [
+          { name: 'email',    label: 'Email',      default: 'dueno@hoteles.com' },
+          { name: 'password', label: 'Contraseña', default: 'TempPass!xxxxxxxx' },
+        ]
+      },
+      { id: 'switch-tenant', method: 'POST', path: '/auth/switch-tenant', label: '② Seleccionar hotel',
+        desc: 'Paso 2 del flujo multi-hotel. Usa el selection_token (barra verde) como Authorization. Devuelve el JWT real con el tenant_id elegido → se guarda automáticamente en la JWT bar.',
+        fields: [
+          { name: 'tenant_id', label: 'tenant_id del hotel elegido', default: '' },
+        ]
+      },
+      { id: 'refresh', method: 'POST', path: '/auth/refresh', label: 'Refresh token',
+        desc: 'Rota el par de tokens.',
+        fields: [{ name: 'refreshToken', label: 'refreshToken', default: '' }]
+      },
+      { id: 'logout', method: 'POST', path: '/auth/logout', label: 'Logout',
+        desc: 'Revoca el refresh token activo.', fields: [] },
+
+      // ── Users ───────────────────────────────────────────────────────────────
+      { id: 'list-users', method: 'GET', path: '/users', label: 'Listar empleados',
+        desc: 'Lista usuarios del tenant activo (via UserTenant).', fields: [] },
+      { id: 'create-user', method: 'POST', path: '/users', label: 'Crear empleado',
+        desc: 'Crea un empleado. Si el email ya existe, solo crea el UserTenant (multi-hotel).',
+        fields: [
+          { name: 'full_name', label: 'Nombre completo', default: 'Carlos Recepción' },
+          { name: 'email',     label: 'Email',           default: 'recepcion@hotelparaiso.com' },
+          { name: 'role_id',   label: 'role_id (UUID)',  default: '' },
+          { name: 'password',  label: 'Contraseña',      default: 'Password1' },
+        ]
+      },
+      { id: 'list-user-tenants', method: 'GET', path: '/users/:id/tenants', label: 'Hoteles del usuario',
+        desc: 'Lista todos los hoteles a los que tiene acceso un usuario. Útil para verificar el vínculo multi-hotel.',
+        fields: [{ name: ':id', label: 'user_id (UUID)', default: '' }]
+      },
+      { id: 'link-tenant', method: 'POST', path: '/users/link-tenant', label: 'Vincular usuario a hotel',
+        desc: 'Añade un usuario existente (por email) a otro hotel con un rol específico. No crea un nuevo usuario.',
+        fields: [
+          { name: 'email',     label: 'Email del usuario',    default: '' },
+          { name: 'tenant_id', label: 'tenant_id del hotel',  default: '' },
+          { name: 'role_id',   label: 'role_id en ese hotel', default: '' },
+        ]
+      },
+      { id: 'unlink-tenant', method: 'PATCH', path: '/users/:id/unlink-tenant', label: 'Quitar acceso a hotel',
+        desc: 'Desactiva el vínculo del usuario con un hotel. No funciona con el hotel primario del usuario.',
+        fields: [
+          { name: ':id',       label: 'user_id (UUID)',       default: '' },
+          { name: 'tenant_id', label: 'tenant_id del hotel',  default: '' },
+        ]
+      },
+
+      // ── Roles & permissions ─────────────────────────────────────────────────
+      { id: 'list-roles', method: 'GET', path: '/roles', label: 'Listar roles',
+        desc: 'Roles del sistema + roles propios del hotel.', fields: [] },
+      { id: 'create-role', method: 'POST', path: '/roles', label: 'Crear rol',
+        desc: 'Crea un rol con permisos para este hotel.',
+        fields: [
+          { name: 'name',        label: 'Nombre',                  default: 'Supervisor de Noche' },
+          { name: 'permissions', label: 'Permisos (JSON array)',   textarea: true,
+            default: '["RESERVATIONS_VIEW","RESERVATIONS_CHECKIN","BILLING_VIEW"]' },
+        ]
+      },
+      { id: 'list-permissions', method: 'GET', path: '/permissions', label: 'Listar permisos',
+        desc: 'Catálogo completo de permisos (?grouped=true para agrupar por módulo).', fields: [] },
+      { id: 'reassign-perms', method: 'PUT', path: '/roles/:id/permissions', label: 'Reasignar permisos',
+        desc: 'Reemplaza el set de permisos de un rol.',
+        fields: [
+          { name: ':id',         label: 'role_id',               default: '' },
+          { name: 'permissions', label: 'Permisos (JSON array)',  textarea: true,
+            default: '["RESERVATIONS_VIEW","BILLING_VIEW"]' },
+        ]
+      },
+    ]
+  },
+
+  // ── hotels-service ───────────────────────────────────────────────────────────
+  {
+    id: 'hotels', label: 'hotels-service', color: 'hotels', port: 3003,
+    endpoints: [
+      { id: 'get-settings',     method: 'GET',  path: '/settings',
+        label: 'Configuración hotel', desc: 'Timezone, currency y política de check-in/out.', fields: [] },
+      { id: 'list-room-types',  method: 'GET',  path: '/room-types',
+        label: 'Tipos de habitación', desc: 'Lista todos los tipos del hotel.', fields: [] },
+      { id: 'create-room-type', method: 'POST', path: '/room-types',
+        label: 'Crear tipo hab.',
+        desc: 'El middleware enforcePlanRoomLimit valida el límite max_rooms_per_hotel del plan.',
+        fields: [
+          { name: 'name',         label: 'Nombre',        default: 'Suite Presidencial' },
+          { name: 'base_price',   label: 'Precio base',   default: '850.00' },
+          { name: 'max_capacity', label: 'Capacidad máx', default: '4' },
+        ]
+      },
+      { id: 'list-rooms',  method: 'GET',  path: '/rooms',
+        label: 'Listar habitaciones', desc: '?status=CLEAN&floor=1', fields: [] },
+      { id: 'mass-rooms',  method: 'POST', path: '/rooms/mass',
+        label: 'Creación masiva',
+        desc: 'Crea un rango de habitaciones para un piso.',
+        fields: [
+          { name: 'room_type_id', label: 'room_type_id', default: '' },
+          { name: 'floor',        label: 'Piso',         default: '1' },
+          { name: 'from',         label: 'Desde (nro)',  default: '101' },
+          { name: 'to',           label: 'Hasta (nro)',  default: '115' },
+        ]
+      },
+      { id: 'hk-rack',    method: 'GET', path: '/housekeeping/rack',
+        label: 'Rack housekeeping', desc: 'Habitaciones agrupadas por piso.', fields: [] },
+      { id: 'hk-pending', method: 'GET', path: '/housekeeping/pending',
+        label: 'Cola limpieza (DIRTY)', desc: 'Solo habitaciones pendientes de limpieza.', fields: [] },
+      { id: 'change-room-status', method: 'PATCH', path: '/rooms/:id/status',
+        label: 'Cambiar estado hab.',
+        fields: [
+          { name: ':id',    label: 'room_id', default: '' },
+          { name: 'status', label: 'status',  default: 'CLEAN' },
+        ]
+      },
+      { id: 'report-damage', method: 'POST', path: '/maintenance/incidents',
+        label: 'Reportar daño',
+        desc: 'Bloquea habitación y emite ITEM_DAMAGE_REPORTED.',
+        fields: [
+          { name: 'room_id',     label: 'room_id',       default: '' },
+          { name: 'description', label: 'Descripción',   default: 'Espejo roto' },
+          { name: 'item_id',     label: 'item_id (opc)', default: '' },
+        ]
+      },
+      { id: 'list-items', method: 'GET', path: '/lendable-items',
+        label: 'Objetos prestables', desc: 'Catálogo con stock.', fields: [] },
+    ]
+  },
+
+  // ── guest-service ────────────────────────────────────────────────────────────
+  {
+    id: 'guest', label: 'guest-service', color: 'guest', port: 3004,
+    endpoints: [
+      { id: 'list-guests',  method: 'GET',  path: '/guests',
+        label: 'Listar huéspedes', desc: '?search=juan&page=1', fields: [] },
+      { id: 'create-guest', method: 'POST', path: '/guests',
+        label: 'Crear huésped',
+        fields: [
+          { name: 'first_name',  label: 'Nombre',       default: 'Juan' },
+          { name: 'last_name',   label: 'Apellido',     default: 'Perez' },
+          { name: 'doc_type',    label: 'doc_type',     default: 'CI' },
+          { name: 'doc_number',  label: 'doc_number',   default: '1234567' },
+          { name: 'email',       label: 'Email (opc)',  default: 'juan@perez.com' },
+          { name: 'nationality', label: 'Nacionalidad', default: 'Boliviano' },
+        ]
+      },
+      { id: 'search-guest', method: 'GET', path: '/guests/search',
+        label: 'Buscar por documento',
+        fields: [
+          { name: 'doc_type',   label: 'doc_type',   default: 'CI',      queryParam: true },
+          { name: 'doc_number', label: 'doc_number', default: '1234567', queryParam: true },
+        ]
+      },
+      { id: 'list-loyalty',   method: 'GET',  path: '/loyalty/levels',
+        label: 'Niveles de lealtad', fields: [] },
+      { id: 'create-loyalty', method: 'POST', path: '/loyalty/levels',
+        label: 'Crear nivel lealtad',
+        fields: [
+          { name: 'name',                label: 'Nombre',           default: 'Oro' },
+          { name: 'min_stays',           label: 'Estadías mínimas', default: '10' },
+          { name: 'discount_percentage', label: 'Descuento (0-1)',  default: '0.10' },
+        ]
+      },
+      { id: 'merge-guests', method: 'POST', path: '/guests/:id/merge',
+        label: 'Fusionar duplicados',
+        fields: [
+          { name: ':id',          label: 'main_id',      default: '' },
+          { name: 'duplicate_id', label: 'duplicate_id', default: '' },
+        ]
+      },
+      { id: 'list-companies', method: 'GET', path: '/companies',
+        label: 'Cuentas corporativas', fields: [] },
+    ]
+  },
+
+  // ── reservation-service ──────────────────────────────────────────────────────
+  {
+    id: 'reservation', label: 'reservation-service', color: 'res', port: 3005,
+    endpoints: [
+      { id: 'check-avail', method: 'GET', path: '/availability',
+        label: 'Verificar disponibilidad',
+        fields: [
+          { name: 'room_type_id',   label: 'room_type_id',   default: '', queryParam: true },
+          { name: 'check_in_date',  label: 'check_in_date',  default: '2025-08-01', queryParam: true },
+          { name: 'check_out_date', label: 'check_out_date', default: '2025-08-05', queryParam: true },
+        ]
+      },
+      { id: 'list-reservations', method: 'GET', path: '/reservations',
+        label: 'Listar reservas', desc: '?status=IN_HOUSE', fields: [] },
+      { id: 'create-reservation', method: 'POST', path: '/reservations',
+        label: 'Crear reserva',
+        fields: [
+          { name: 'main_guest_id', label: 'guest_id',  default: '' },
+          { name: 'source',        label: 'source',    default: 'WALK_IN' },
+          { name: 'rooms', label: 'rooms (JSON array)', textarea: true,
+            default: '[{"room_type_id":"","room_type_name":"Simple","check_in_date":"2025-08-01","check_out_date":"2025-08-03","rate_per_night":300}]' },
+        ]
+      },
+      { id: 'assign-room', method: 'POST', path: '/front-office/rooms/:resRoomId/assign',
+        label: 'Asignar habitación',
+        fields: [
+          { name: ':resRoomId', label: 'res_room_id',     default: '' },
+          { name: 'room_id',    label: 'room_id físico',  default: '' },
+        ]
+      },
+      { id: 'checkin',  method: 'POST',  path: '/front-office/:id/checkin',
+        label: 'Check-in',
+        fields: [{ name: ':id', label: 'reservation_id', default: '' }]
+      },
+      { id: 'checkout', method: 'POST',  path: '/front-office/:id/checkout',
+        label: 'Check-out',
+        desc: 'Verifica saldo = 0 y préstamos devueltos.',
+        fields: [{ name: ':id', label: 'reservation_id', default: '' }]
+      },
+      { id: 'cancel-res', method: 'PATCH', path: '/reservations/:id/cancel',
+        label: 'Cancelar reserva',
+        fields: [{ name: ':id', label: 'reservation_id', default: '' }]
+      },
+      { id: 'extend-stay', method: 'PATCH', path: '/reservations/rooms/:resRoomId/extend',
+        label: 'Extender estadía',
+        fields: [
+          { name: ':resRoomId',   label: 'res_room_id',  default: '' },
+          { name: 'extra_nights', label: 'extra_nights', default: '2' },
+        ]
+      },
+    ]
+  },
+
+  // ── billing-service ──────────────────────────────────────────────────────────
+  {
+    id: 'billing', label: 'billing-service', color: 'billing', port: 3007,
+    endpoints: [
+      { id: 'open-shift', method: 'POST', path: '/shifts/open',
+        label: 'Abrir turno',
+        fields: [{ name: 'starting_cash', label: 'Fondo inicial (BOB)', default: '200' }]
+      },
+      { id: 'current-shift', method: 'GET', path: '/shifts/current-status',
+        label: 'Estado turno actual', fields: [] },
+      { id: 'close-shift', method: 'POST', path: '/shifts/:shiftId/close',
+        label: 'Cerrar turno',
+        fields: [
+          { name: ':shiftId',    label: 'shift_id',                 default: '' },
+          { name: 'actual_cash', label: 'Efectivo contado (BOB)',   default: '0' },
+        ]
+      },
+      { id: 'folios-by-res', method: 'GET', path: '/folios/reservation/:reservationId',
+        label: 'Folios de reserva',
+        fields: [{ name: ':reservationId', label: 'reservation_id', default: '' }]
+      },
+      { id: 'add-charge', method: 'POST', path: '/charges',
+        label: 'Agregar cargo',
+        desc: 'Monto negativo = descuento/regateo.',
+        fields: [
+          { name: 'folio_id',    label: 'folio_id',              default: '' },
+          { name: 'category',    label: 'category',              default: 'ACCOMMODATION' },
+          { name: 'amount',      label: 'Monto (neg=descuento)', default: '300' },
+          { name: 'description', label: 'Descripción',           default: 'Noche adicional' },
+        ]
+      },
+      { id: 'add-payment', method: 'POST', path: '/payments/:folioId',
+        label: 'Registrar pago',
+        fields: [
+          { name: ':folioId', label: 'folio_id',  default: '' },
+          { name: 'method',   label: 'method',    default: 'CASH' },
+          { name: 'amount',   label: 'Monto',     default: '300' },
+          { name: 'currency', label: 'currency',  default: 'BOB' },
+        ]
+      },
+      { id: 'settle-folio', method: 'POST', path: '/folios/:id/settle',
+        label: 'Liquidar folio',
+        fields: [
+          { name: ':id',     label: 'folio_id',             default: '' },
+          { name: 'payment', label: 'payment (JSON)', textarea: true,
+            default: '{"method":"CASH","currency":"BOB","amount":900}' },
+          { name: 'invoice', label: 'invoice (JSON, opc)', textarea: true,
+            default: '{"tax_id":"1234567","business_name":"Juan Perez","email":"jp@email.com"}' },
+        ]
+      },
+      { id: 'set-rate', method: 'POST', path: '/exchange-rates',
+        label: 'Fijar tasa de cambio',
+        fields: [
+          { name: 'currency', label: 'currency',      default: 'USD' },
+          { name: 'rate',     label: 'Tasa (ej:8.50)', default: '8.50' },
+        ]
+      },
+      { id: 'gen-invoice', method: 'POST', path: '/invoices/:folioId',
+        label: 'Emitir factura',
+        fields: [
+          { name: ':folioId',     label: 'folio_id',     default: '' },
+          { name: 'nit_ci',       label: 'NIT / CI',     default: '1020304050' },
+          { name: 'razon_social', label: 'Razón social', default: 'Empresa SRL' },
+          { name: 'email',        label: 'Email',        default: 'conta@empresa.com' },
+        ]
+      },
+    ]
+  },
+
+  // ── audit-service ────────────────────────────────────────────────────────────
+  {
+    id: 'audit', label: 'audit-service', color: 'audit', port: 3008,
+    endpoints: [
+      { id: 'audit-all',    method: 'GET', path: '/audit',
+        label: 'Log completo tenant', desc: '?module=BILLING&action=VOID&from=&to=', fields: [] },
+      { id: 'audit-entity', method: 'GET', path: '/audit/entity/:entityId',
+        label: 'Historial entidad',
+        fields: [{ name: ':entityId', label: 'entity_id (UUID)', default: '' }]
+      },
+      { id: 'audit-user',   method: 'GET', path: '/audit/user/:userId',
+        label: 'Acciones de usuario',
+        fields: [{ name: ':userId', label: 'user_id (UUID)', default: '' }]
+      },
+      { id: 'anomalies',    method: 'GET', path: '/audit/anomalies',
+        label: 'Detectar anomalías', fields: [] },
+    ]
+  },
+
+  // ── reporting-service ────────────────────────────────────────────────────────
+  {
+    id: 'reporting', label: 'reporting-service', color: 'report', port: 3009,
+    endpoints: [
+      { id: 'dashboard',      method: 'GET', path: '/dashboard/manager',
+        label: 'Dashboard gerencia', desc: '?from=YYYY-MM-DD&to=YYYY-MM-DD', fields: [] },
+      { id: 'occupancy-dash', method: 'GET', path: '/dashboard/occupancy',
+        label: 'Gráfico ocupación', fields: [] },
+      { id: 'shifts-dash',    method: 'GET', path: '/dashboard/shifts',
+        label: 'Historial cajeros', fields: [] },
+      { id: 'sales-report',   method: 'GET', path: '/reports/sales',
+        label: 'Reporte de ventas',
+        fields: [
+          { name: 'from',   label: 'Desde',   default: '2025-01-01', queryParam: true },
+          { name: 'to',     label: 'Hasta',   default: '2025-01-31', queryParam: true },
+          { name: 'format', label: 'Formato', default: 'json',       queryParam: true },
+        ]
+      },
+      { id: 'libro-ventas', method: 'GET', path: '/reports/libro-ventas',
+        label: 'Libro de Ventas (SIN)',
+        fields: [
+          { name: 'year',   label: 'Año',     default: '2025', queryParam: true },
+          { name: 'month',  label: 'Mes',     default: '1',    queryParam: true },
+          { name: 'format', label: 'Formato', default: 'json', queryParam: true },
+        ]
+      },
+    ]
+  },
+];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let current = null;
+let history  = [];
+
+// ── Build sidebar ─────────────────────────────────────────────────────────────
+const sidebar = document.getElementById('sidebar');
+SERVICES.forEach(svc => {
+  const lbl = document.createElement('div');
+  lbl.className = 'nav-service';
+  lbl.style.color = `var(--${svc.color})`;
+  lbl.textContent = svc.label;
+  sidebar.appendChild(lbl);
+
+  svc.endpoints.forEach(ep => {
+    const btn = document.createElement('button');
+    btn.className = 'nav-btn';
+    btn.id = `nav-${ep.id}`;
+    btn.onclick = () => selectEndpoint(svc, ep);
+    btn.innerHTML = `
+      <div class="color-bar" style="background:var(--${svc.color})"></div>
+      <span class="method-badge ${ep.method}">${ep.method}</span>
+      <span>${ep.label}</span>`;
+    sidebar.appendChild(btn);
+  });
+});
+
+// ── Select endpoint ───────────────────────────────────────────────────────────
+function selectEndpoint(svc, ep) {
+  current = { svc, ep };
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`nav-${ep.id}`).classList.add('active');
+
+  const main = document.getElementById('mainPanel');
+  const queryParams = (ep.fields || []).filter(f => f.queryParam);
+  const bodyFields  = (ep.fields || []).filter(f => !f.queryParam);
+
+  let html = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span class="method-badge ${ep.method}" style="font-size:11px">${ep.method}</span>
+      <span class="endpoint-title">${ep.label}</span>
+    </div>`;
+
+  if (ep.desc) {
+    html += `<div class="endpoint-desc">${ep.desc.replace(/\n/g,'<br>')}</div>`;
+  }
+
+  html += `<div class="url-display"><span>:${svc.port}</span>${ep.path}</div>`;
+
+  if (queryParams.length) {
+    html += `<div class="section-label">Query params</div>`;
+    html += queryParams.map(f => field(f)).join('');
+  }
+  if (bodyFields.length) {
+    if (queryParams.length) html += `<div class="section-label">Request body</div>`;
+    let i = 0;
+    while (i < bodyFields.length) {
+      const f  = bodyFields[i];
+      const f2 = bodyFields[i+1];
+      if (f.textarea) {
+        html += field(f); i++;
+      } else if (f2 && !f2.textarea && !f2.queryParam) {
+        html += `<div class="field-row">${field(f)}${field(f2)}</div>`; i += 2;
+      } else {
+        html += field(f); i++;
+      }
+    }
+  }
+
+  // Special hint for switch-tenant
+  if (ep.id === 'switch-tenant') {
+    html += `<div style="font-size:11px;color:var(--accent2);background:#1a1f2e;border:1px solid #818cf830;padding:8px 10px;border-radius:5px;margin-bottom:12px">
+      ℹ️ Este endpoint usa el <strong>selection_token</strong> (barra verde) como Authorization automáticamente.
+      No necesitas pegarlo en la JWT bar.
+    </div>`;
+  }
+
+  html += `<button class="send-btn" onclick="sendRequest()">▶ Enviar</button>`;
+  main.innerHTML = html;
+}
+
+function field(f) {
+  const id = `field-${f.name}`;
+  if (f.textarea) {
+    return `<div class="field-group"><label>${f.label}</label><textarea id="${id}">${f.default||''}</textarea></div>`;
+  }
+  return `<div class="field-group"><label>${f.label}</label><input id="${id}" value="${f.default||''}" placeholder="${f.label}"></div>`;
+}
+
+// ── Send request ──────────────────────────────────────────────────────────────
+async function sendRequest() {
+  if (!current) return;
+  const { svc, ep } = current;
+
+  const base  = document.getElementById('baseUrl').value.replace(/\/$/, '');
+  const token = document.getElementById('jwtToken').value.trim();
+
+  // Build URL with path params
+  let path = ep.path;
+  const bodyData = {};
+
+  (ep.fields || []).forEach(f => {
+    const val = document.getElementById(`field-${f.name}`)?.value || '';
+    if (f.name.startsWith(':')) {
+      path = path.replace(f.name, val);
+    } else if (!f.queryParam) {
+      try {
+        if ((val.startsWith('{') || val.startsWith('[')) && val.trim()) {
+          bodyData[f.name] = JSON.parse(val);
+        } else if (val !== '') {
+          bodyData[f.name] = isNaN(val) ? val : (val.includes('.') ? parseFloat(val) : parseInt(val));
+        }
+      } catch { bodyData[f.name] = val; }
+    }
+  });
+
+  const qp = (ep.fields || []).filter(f => f.queryParam);
+  const qs = qp.map(f => {
+    const v = document.getElementById(`field-${f.name}`)?.value || '';
+    return v ? `${encodeURIComponent(f.name)}=${encodeURIComponent(v)}` : '';
+  }).filter(Boolean).join('&');
+
+  const url = `${base}:${svc.port}${path}${qs ? '?' + qs : ''}`;
+
+  // Authorization: switch-tenant uses selection_token; everything else uses JWT bar
+  const authToken = ep.id === 'switch-tenant' && _selectionToken
+    ? `Bearer ${_selectionToken}`
+    : (token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : null);
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (authToken) headers['Authorization'] = authToken;
+
+  const opts = { method: ep.method, headers };
+  if (!['GET','DELETE'].includes(ep.method) && Object.keys(bodyData).length) {
+    opts.body = JSON.stringify(bodyData);
+  }
+
+  const pill = document.getElementById('statusPill');
+  const body = document.getElementById('resBody');
+  const time = document.getElementById('resTime');
+  pill.className = 'status-pill status-pending';
+  pill.textContent = '…';
+  body.textContent = '// enviando…';
+
+  const t0 = Date.now();
+  try {
+    const res  = await fetch(url, opts);
+    const ms   = Date.now() - t0;
+    time.textContent = `${ms}ms`;
+    const cls  = res.status < 300 ? 'status-2xx' : res.status < 500 ? 'status-4xx' : 'status-5xx';
+    pill.className = `status-pill ${cls}`;
+    pill.textContent = res.status;
+
+    const ct = res.headers.get('content-type') || '';
+    let json;
+    if (ct.includes('json')) {
+      json = await res.json();
+      body.innerHTML = syntaxHighlight(JSON.stringify(json, null, 2));
+    } else {
+      const text = await res.text();
+      body.textContent = text;
+      json = {};
+    }
+
+    // ── Auto-capture logic ────────────────────────────────────────────────────
+    // Login → multiple hotels: save selection_token
+    if (ep.id === 'login' && json?.requires_hotel_selection && json?.selection_token) {
+      setSelToken(json.selection_token);
+      showBanner('🔑 selection_token capturado automáticamente — ahora usa "② Seleccionar hotel"');
+    }
+    // Login → single hotel OR switch-tenant: save JWT
+    if ((ep.id === 'login' || ep.id === 'switch-tenant') && json?.token) {
+      document.getElementById('jwtToken').value = json.token;
+      if (ep.id === 'switch-tenant') {
+        clearSelToken();
+        showBanner('✓ JWT actualizado con el hotel seleccionado');
+      } else {
+        showBanner('✓ JWT guardado automáticamente');
+      }
+    }
+
+    addHistory(ep.method, ep.label, res.status);
+  } catch (err) {
+    pill.className = 'status-pill status-5xx';
+    pill.textContent = 'ERR';
+    time.textContent = `${Date.now()-t0}ms`;
+    body.textContent = `// Error de red\n${err.message}\n\nVerifica que el servicio esté corriendo en :${svc.port}`;
+  }
+}
+
+function showBanner(msg) {
+  // Show a brief capture notification in the main panel
+  let banner = document.getElementById('captureBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'captureBanner';
+    banner.className = 'capture-banner';
+    document.getElementById('mainPanel').prepend(banner);
+  }
+  banner.textContent = msg;
+  banner.classList.add('show');
+  setTimeout(() => banner.classList.remove('show'), 4000);
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+function addHistory(method, label, status) {
+  history.unshift({ method, label, status });
+  if (history.length > 8) history.pop();
+  const bar = document.getElementById('histBar');
+  bar.innerHTML = '<span style="color:var(--muted);font-size:10px;white-space:nowrap">historial</span>';
+  history.forEach(h => {
+    const p   = document.createElement('div');
+    const cls = h.status < 300 ? 'status-2xx' : 'status-4xx';
+    p.className = 'hist-pill';
+    p.innerHTML = `<span class="${cls}" style="font-size:9px;padding:0 3px;border-radius:2px">${h.status}</span> ${h.label}`;
+    bar.appendChild(p);
+  });
+}
+
+// ── JSON highlight ────────────────────────────────────────────────────────────
+function syntaxHighlight(json) {
+  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+    if (/^"/.test(m)) return /:$/.test(m) ? `<span class="json-key">${m}</span>` : `<span class="json-string">${m}</span>`;
+    if (/true|false/.test(m)) return `<span class="json-bool">${m}</span>`;
+    if (/null/.test(m))       return `<span class="json-null">${m}</span>`;
+    return `<span class="json-number">${m}</span>`;
+  });
+}
+
+// Cmd/Ctrl+Enter to send
+document.addEventListener('keydown', e => { if (e.key==='Enter' && (e.metaKey||e.ctrlKey)) sendRequest(); });
+</script>
+</body>
+</html>

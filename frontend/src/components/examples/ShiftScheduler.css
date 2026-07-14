@@ -1,0 +1,413 @@
+/* ---------------------------------------------------------
+   Tokens
+--------------------------------------------------------- */
+:root {
+  --sched-ink: #1b2430;
+  --sched-slate: #5b6472;
+  --sched-cream: #f7f5f1;
+  --sched-line: #e3ded4;
+  --sched-brass: #b08d57;
+  --sched-brass-dark: #8c6d3f;
+  --sched-sage: #6f8f77;
+  --sched-sage-dark: #547059;
+  --sched-danger: #a4443a;
+}
+
+.sched-card {
+  --radius: 14px;
+  font-family: "IBM Plex Sans", Inter, system-ui, sans-serif;
+  color: var(--sched-ink);
+  background: var(--sched-cream);
+  border: 1px solid var(--sched-line);
+  border-radius: var(--radius);
+  padding: 28px;
+  max-width: 560px;
+  box-shadow: 0 1px 2px rgba(27, 36, 48, 0.04);
+}
+
+.sched-card-noframe {
+  font-family: "IBM Plex Sans", Inter, system-ui, sans-serif;
+  color: var(--sched-ink);
+  width: 100%;
+}
+
+.sched-card__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--sched-line);
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.sched-card__eyebrow {
+  margin: 0 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sched-brass-dark);
+  font-weight: 600;
+}
+
+.sched-card__title {
+  margin: 0;
+  font-family: "Fraunces", "Playfair Display", Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.sched-card__label {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sched-slate);
+}
+
+.sched-card__section {
+  margin-bottom: 22px;
+}
+
+/* ---------------------------------------------------------
+   Day chips
+--------------------------------------------------------- */
+.sched-days {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sched-days__chip {
+  border: 1px solid var(--sched-line);
+  background: #fff;
+  color: var(--sched-slate);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sched-days__chip:hover {
+  border-color: var(--sched-brass);
+}
+
+.sched-days__chip.is-active {
+  background: var(--sched-ink);
+  border-color: var(--sched-ink);
+  color: #fff;
+}
+
+/* ---------------------------------------------------------
+   Clocks layout
+--------------------------------------------------------- */
+.sched-card__clocks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.sched-card__arrow {
+  color: var(--sched-slate);
+  display: flex;
+  align-self: center;
+  margin-top: 30px;
+}
+
+.sched-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 190px;
+}
+
+.sched-clock__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.sched-clock__label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sched-slate);
+}
+
+.sched-clock--brass .sched-clock__digital {
+  color: var(--sched-brass-dark);
+}
+.sched-clock--sage .sched-clock__digital {
+  color: var(--sched-sage-dark);
+}
+
+.sched-clock__digital {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.sched-clock__dial {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--sched-line);
+  cursor: pointer;
+  box-shadow: inset 0 1px 3px rgba(27, 36, 48, 0.05);
+}
+
+.sched-clock__hub {
+  position: absolute;
+  left: 90px;
+  top: 90px;
+  width: 8px;
+  height: 8px;
+  margin: -4px;
+  border-radius: 50%;
+  background: var(--sched-ink);
+  z-index: 3;
+}
+
+.sched-clock__hand {
+  position: absolute;
+  left: 90px;
+  top: 90px;
+  width: 2px;
+  height: 62px;
+  margin-left: -1px;
+  transform-origin: top center;
+  background: var(--sched-ink);
+  border-radius: 2px;
+  z-index: 2;
+  transition: transform 0.15s ease;
+}
+
+.sched-clock--brass .sched-clock__hand {
+  background: var(--sched-brass);
+}
+.sched-clock--sage .sched-clock__hand {
+  background: var(--sched-sage);
+}
+
+.sched-clock__num {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  margin: -13px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sched-ink);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+  transition: all 0.15s ease;
+}
+
+.sched-clock__num:hover {
+  background: var(--sched-line);
+}
+
+.sched-clock__num.is-active {
+  background: var(--sched-ink);
+  color: #fff;
+}
+
+.sched-clock--brass .sched-clock__num.is-active {
+  background: var(--sched-brass-dark);
+}
+.sched-clock--sage .sched-clock__num.is-active {
+  background: var(--sched-sage-dark);
+}
+
+.sched-clock__controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.sched-clock__ampm,
+.sched-clock__minutes {
+  display: flex;
+  border: 1px solid var(--sched-line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sched-clock__ampm button,
+.sched-clock__minutes button {
+  border: none;
+  background: #fff;
+  color: var(--sched-slate);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-right: 1px solid var(--sched-line);
+}
+
+.sched-clock__ampm button:last-child,
+.sched-clock__minutes button:last-child {
+  border-right: none;
+}
+
+.sched-clock__ampm button.is-active,
+.sched-clock__minutes button.is-active {
+  background: var(--sched-ink);
+  color: #fff;
+}
+
+/* ---------------------------------------------------------
+   Add button + error
+--------------------------------------------------------- */
+.sched-card__error {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--sched-danger);
+}
+
+.sched-card__add {
+  width: 100%;
+  border: none;
+  background: var(--sched-ink);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  margin-bottom: 24px;
+}
+
+.sched-card__add:hover {
+  background: var(--sched-brass-dark);
+}
+
+/* ---------------------------------------------------------
+   Ledger (list of assigned shifts)
+--------------------------------------------------------- */
+.sched-card__ledger {
+  border-top: 1px solid var(--sched-line);
+  padding-top: 18px;
+}
+
+.sched-card__empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--sched-slate);
+  font-style: italic;
+}
+
+.sched-ledger__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sched-ledger__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid var(--sched-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.sched-ledger__days {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.sched-ledger__daytag {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sched-slate);
+  background: var(--sched-cream);
+  border: 1px solid var(--sched-line);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.sched-ledger__time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sched-ledger__sep {
+  color: var(--sched-slate);
+}
+
+.sched-ledger__badge {
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: var(--sched-brass-dark);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 2px;
+}
+
+.sched-ledger__remove {
+  border: none;
+  background: transparent;
+  color: var(--sched-slate);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.sched-ledger__remove:hover {
+  color: var(--sched-danger);
+}
+
+/* ---------------------------------------------------------
+   Responsive
+--------------------------------------------------------- */
+@media (max-width: 480px) {
+  .sched-card {
+    padding: 18px;
+  }
+  .sched-card__clocks {
+    flex-direction: column;
+  }
+  .sched-card__arrow {
+    transform: rotate(90deg);
+    margin: 0;
+  }
+}

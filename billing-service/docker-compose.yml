@@ -1,0 +1,82 @@
+version: '3.9'
+
+services:
+  billing-service:
+    build: .
+    container_name: billing-service
+    ports:
+      - "3007:3007"
+    environment:
+      - NODE_ENV=development
+      - PORT=3007
+      - DB_HOST=postgres-billing
+      - DB_PORT=5432
+      - DB_NAME=billing_db
+      - DB_USER=billing_user
+      - DB_PASSWORD=billing_password
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - RABBITMQ_EXCHANGE=hotel_events
+      - JWT_SECRET=change_me_in_production_min_32_chars
+      - INTERNAL_TOKEN=super_secret_internal_token
+      - COMMUNICATION_SERVICE_URL=http://communication-service:3006
+    depends_on:
+      postgres-billing:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - hotel-network
+
+  postgres-billing:
+    image: postgres:16-alpine
+    container_name: billing-postgres
+    environment:
+      POSTGRES_DB: billing_db
+      POSTGRES_USER: billing_user
+      POSTGRES_PASSWORD: billing_password
+    volumes:
+      - billing_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5438:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U billing_user -d billing_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - hotel-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: saas-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - hotel-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: billing-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - billing-service
+    networks:
+      - hotel-network
+
+volumes:
+  billing_postgres_data:
+
+networks:
+  hotel-network:
+    external: true
+    name: hotel-network
