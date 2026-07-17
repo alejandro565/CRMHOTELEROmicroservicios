@@ -11,10 +11,20 @@ function extractRoutes(app) {
   const routes = [];
   if (!app._router) return routes;
 
+  const getRouteHandlers = (route) =>
+    route?.stack
+      ?.map((layer) => layer.name || 'anonymous')
+      .filter(Boolean) || ['anonymous'];
+
   app._router.stack.forEach(layer => {
     if (layer.route) {
       const methods = Object.keys(layer.route.methods).map(m => m.toUpperCase());
-      routes.push({ methods, path: layer.route.path, type: 'public' });
+      routes.push({
+        methods,
+        path: layer.route.path,
+        type: 'public',
+        handler: getRouteHandlers(layer.route).join(', '),
+      });
     } else if (layer.name === 'router' && layer.handle.stack) {
       const prefix = layer.regexp.source
         .replace('\\/?(?=\\/|$)', '')
@@ -27,7 +37,12 @@ function extractRoutes(app) {
           const methods = Object.keys(sub.route.methods).map(m => m.toUpperCase());
           const fullPath = `${prefix}${sub.route.path}`;
           const type = prefix.includes('internal') ? 'internal' : 'public';
-          routes.push({ methods, path: fullPath, type });
+          routes.push({
+            methods,
+            path: fullPath,
+            type,
+            handler: getRouteHandlers(sub.route).join(', '),
+          });
         }
       });
     }

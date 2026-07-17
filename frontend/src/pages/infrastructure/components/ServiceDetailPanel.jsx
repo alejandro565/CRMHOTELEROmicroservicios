@@ -34,20 +34,27 @@ export default function ServiceDetailPanel({ selectedService, activeData, active
                 </h4>
                 <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                   {activeData.routes?.map((route, idx) => (
-                    <div key={idx} className="flex items-center justify-between bg-white border border-surface-100 rounded-lg p-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded font-bold font-mono text-[10px] ${
-                          route.methods.includes('GET') ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
+                    <div key={idx} className="bg-white border border-surface-100 rounded-lg p-2 text-xs space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`px-2 py-0.5 rounded font-bold font-mono text-[10px] ${
+                            route.methods.includes('GET') ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
+                          }`}>
+                            {route.methods.join(',')}
+                          </span>
+                          <span className="font-mono text-surface-600 truncate">{route.path}</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          route.type === 'internal' ? 'bg-purple-50 text-purple-700' : 'bg-surface-100 text-surface-600'
                         }`}>
-                          {route.methods.join(',')}
+                          {route.type}
                         </span>
-                        <span className="font-mono text-surface-600">{route.path}</span>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                        route.type === 'internal' ? 'bg-purple-50 text-purple-700' : 'bg-surface-100 text-surface-600'
-                      }`}>
-                        {route.type}
-                      </span>
+
+                      <div className="rounded-md bg-surface-50 px-2 py-1.5 border border-surface-100">
+                        <span className="block text-[10px] font-bold text-surface-400 uppercase tracking-widest mb-1">Función / Handler</span>
+                        <span className="font-mono text-[11px] text-surface-700 break-all">{route.handler || 'anonymous'}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
