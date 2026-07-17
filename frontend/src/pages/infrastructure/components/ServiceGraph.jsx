@@ -110,6 +110,38 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
   const panelDraggingRef = useRef(null); // { startX, startY, origLeft, origTop }
   const [expandedGroups, setExpandedGroups] = useState(new Set());
 
+  // Zoom / pan state
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const ZOOM_MIN = 0.4;
+  const ZOOM_MAX = 2.8;
+
+  // Legend filter state: null => show all, otherwise 'dependency' | 'event' | 'shared'
+  const [activeLegend, setActiveLegend] = useState(null);
+
+  const zoomTo = (next) => {
+    const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next));
+    setZoom(clamped);
+  };
+
+  const zoomIn = () => zoomTo(zoom * 1.15);
+  const zoomOut = () => zoomTo(zoom / 1.15);
+  const resetZoom = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
+
+  const handleSvgWheel = (e) => {
+    // Ctrl + wheel to zoom
+    if (e.ctrlKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      zoomTo(zoom * delta);
+    }
+  };
+
+  const toggleLegend = (type) => {
+    setActiveLegend((cur) => (cur === type ? null : type));
+  };
+
   const graphData = useMemo(() => {
     const nodes = Object.entries(nodeLayout).map(([svcKey, position]) => {
       const svcInfo = servicesData[svcKey];
@@ -425,15 +457,39 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
             Dependencias HTTP + eventos RabbitMQ. Arrastra nodos para reorganizar y haz click en una conexión para resaltar los servicios involucrados.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3 text-[10px] font-semibold text-surface-600">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-            HTTP
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-violet-500"></span>
-            Evento
-          </span>
+        <div className="flex flex-wrap gap-3 items-center text-[10px] font-semibold text-surface-600">
+          <div className="inline-flex items-center gap-2">
+            <button
+              onClick={() => toggleLegend('dependency')}
+              className={`inline-flex items-center gap-1.5 px-2 py-1 rounded ${activeLegend === 'dependency' ? 'bg-emerald-600 text-white' : 'bg-white/5 text-surface-600'}`}
+            >
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              HTTP
+            </button>
+
+            <button
+              onClick={() => toggleLegend('event')}
+              className={`inline-flex items-center gap-1.5 px-2 py-1 rounded ${activeLegend === 'event' ? 'bg-violet-600 text-white' : 'bg-white/5 text-surface-600'}`}
+            >
+              <span className="w-2.5 h-2.5 rounded-full bg-violet-500"></span>
+              Evento
+            </button>
+
+            <button
+              onClick={() => toggleLegend('shared')}
+              className={`inline-flex items-center gap-1.5 px-2 py-1 rounded ${activeLegend === 'shared' ? 'bg-amber-600 text-black' : 'bg-white/5 text-surface-600'}`}
+            >
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+              Compartidas
+            </button>
+          </div>
+
+          <div className="inline-flex items-center gap-2 ml-3">
+            <button onClick={zoomOut} className="px-2 py-1 bg-white/5 rounded">−</button>
+            <div className="px-2 py-1 bg-white/3 rounded font-mono">x{zoom.toFixed(2)}</div>
+            <button onClick={zoomIn} className="px-2 py-1 bg-white/5 rounded">+</button>
+            <button onClick={resetZoom} className="px-2 py-1 bg-white/5 rounded ml-2">Reset</button>
+          </div>
         </div>
       </div>
 
@@ -445,6 +501,7 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onClick={handleBackgroundClick}
+          onWheel={handleSvgWheel}
         >
           <defs>
             <marker id="arrow-dependency" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
@@ -455,8 +512,11 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
             </marker>
           </defs>
 
-          {/* Edges */}
-          {graphData.edges.map((edge, idx) => {
+          {/* Apply zoom / pan transform to the graph contents */}
+          <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
+
+            {/* Edges */}
+            {graphData.edges.map((edge, idx) => {
             const source = graphData.nodes.find((node) => node.id === edge.source);
             const target = graphData.nodes.find((node) => node.id === edge.target);
             if (!source || !target) return null;
@@ -469,6 +529,13 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
             const isHighlighted = highlightedEdgeKey === edge.key;
             const hasShared = Array.isArray(edge.sharedRoutes) && edge.sharedRoutes.length > 0;
             const lineColor = isHighlighted ? '#f59e0b' : hasShared ? '#f59e0b' : getEdgeColor(edge.type);
+
+            const isVisible = !activeLegend
+              || (activeLegend === 'shared' && hasShared)
+              || (activeLegend === 'event' && edge.type === 'event')
+              || (activeLegend === 'dependency' && edge.type === 'dependency');
+
+            const edgeOpacity = isHighlighted ? 1 : isVisible ? 0.95 : 0.12;
 
             return (
               <g
@@ -485,7 +552,7 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
                   strokeWidth={isHighlighted ? 4 : isDashed ? 2.2 : 2.6}
                   strokeDasharray={isDashed ? '7 6' : '0'}
                   markerEnd={`url(#${edge.type === 'event' ? 'arrow-event' : 'arrow-dependency'})`}
-                  opacity={isHighlighted ? 1 : 0.95}
+                  opacity={edgeOpacity}
                 />
 
                 {/* Small badge for shared routes */}
@@ -580,6 +647,7 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
               </g>
             );
           })}
+          </g>
         </svg>
 
           {/* Floating details panel for edge OR node (movable + wheel-scroll) */}
