@@ -294,13 +294,36 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
   };
 
   const handlePanelWheel = (e) => {
+    // Prevent wheel events over the floating panel from propagating to the page
+    // so scrolling inside the panel does not scroll the page or move the panel.
     e.stopPropagation();
-    // vertical move with wheel: invert deltaY
-    setPanelPos((p) => ({ left: p.left, top: Math.max(8, p.top + e.deltaY) }));
+    // Do not move the panel with the wheel to avoid unexpected behavior.
   };
 
   const [edgeDetails, setEdgeDetails] = useState(null);
   const [nodeDetails, setNodeDetails] = useState(null);
+
+  // Hover tooltip state for edges (quick preview of shared routes)
+  const [hoverEdge, setHoverEdge] = useState(null); // { key, sharedRoutes, pos }
+
+  const handleEdgePointerEnter = (edge) => {
+    if (!edge) return;
+    if (!edge.sharedRoutes || edge.sharedRoutes.length === 0) return;
+
+    // compute midpoint for positioning tooltip
+    const sourceNode = nodeLayout[edge.source];
+    const targetNode = nodeLayout[edge.target];
+    if (!sourceNode || !targetNode) return;
+    const midX = (sourceNode.x + sourceNode.width / 2 + targetNode.x + targetNode.width / 2) / 2;
+    const midY = (sourceNode.y + targetNode.y) / 2 - 8;
+    const pos = computePanelPosFromView(midX, midY, 260, 120);
+
+    setHoverEdge({ key: edge.key, sharedRoutes: edge.sharedRoutes || [], pos });
+  };
+
+  const handleEdgePointerLeave = () => {
+    setHoverEdge(null);
+  };
 
   // When an edge is clicked, compute exposed routes, group them and position the panel
   const handleEdgeClick = (e, edge) => {
@@ -451,6 +474,8 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
               <g
                 key={`${edge.source}-${edge.target}-${edge.label}-${idx}`}
                 onClick={(e) => handleEdgeClick(e, edge)}
+                onPointerEnter={() => handleEdgePointerEnter(edge)}
+                onPointerLeave={handleEdgePointerLeave}
                 className="cursor-pointer"
               >
                 <path
@@ -462,6 +487,17 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
                   markerEnd={`url(#${edge.type === 'event' ? 'arrow-event' : 'arrow-dependency'})`}
                   opacity={isHighlighted ? 1 : 0.95}
                 />
+
+                {/* Small badge for shared routes */}
+                {hasShared && (
+                  <g>
+                    <circle cx={midX + 18} cy={midY - 14} r={12} fill="#f59e0b" stroke="#fff" strokeWidth={1} opacity={0.98} />
+                    <text x={midX + 18} y={midY - 10} fill="#000" fontSize="10" fontWeight="700" textAnchor="middle" fontFamily="monospace">
+                      {edge.sharedRoutes.length}
+                    </text>
+                  </g>
+                )}
+
                 <text
                   x={midX}
                   y={midY}
@@ -667,6 +703,25 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
               </div>
             </div>
           )}
+
+          {/* Hover tooltip for quick shared-routes preview */}
+          {hoverEdge && hoverEdge.sharedRoutes && hoverEdge.sharedRoutes.length > 0 && (
+            <div
+          className="absolute z-60"
+          style={{ left: `${hoverEdge.pos.left}px`, top: `${hoverEdge.pos.top}px`, width: 260 }}
+          onWheel={(e) => { e.stopPropagation(); }}
+            >
+          <div className="bg-slate-700 text-white rounded-md p-2 text-xs shadow-lg border border-white/5">
+            <div className="font-semibold mb-1">Rutas compartidas ({hoverEdge.sharedRoutes.length})</div>
+            <ul className="max-h-36 overflow-auto space-y-1">
+              {hoverEdge.sharedRoutes.map((r, i) => (
+                <li key={i} className="font-mono break-words">{r}</li>
+              ))}
+            </ul>
+          </div>
+            </div>
+          )}
+
       </div>
     </div>
   );
