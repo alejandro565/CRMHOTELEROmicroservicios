@@ -28,7 +28,10 @@ const { Folio, FOLIO_TYPE, FOLIO_STATUS, _mocks } = require('../src/models');
 const { publishEvent } = require('../src/config/rabbitmq');
 const folioService = require('../src/services/folio.service');
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  Folio.findAll.mockResolvedValue([_mocks.mockMaster, _mocks.mockIncidental]);
+});
 
 describe('createFolioSet()', () => {
   it('creates master and incidental folios', async () => {
@@ -72,7 +75,7 @@ describe('updateFolioBalance()', () => {
     expect(publishEvent).toHaveBeenCalledWith('billing.folio_cleared', expect.objectContaining({ balance: 0 }));
   });
 
-  it('does not publish event when balance remains positive', async () => {
+  it('publishes balance_updated when balance remains positive', async () => {
     Folio.findOne.mockResolvedValue(_mocks.mockMaster);
     const { Charge, Payment } = require('../src/models');
     Charge.sum.mockResolvedValue(500);
@@ -81,7 +84,11 @@ describe('updateFolioBalance()', () => {
     await folioService.updateFolioBalance('folio-master', 'tenant-001');
 
     expect(_mocks.mockMaster.update).toHaveBeenCalledWith({ balance: 300 }, expect.anything());
-    expect(publishEvent).not.toHaveBeenCalled();
+    expect(publishEvent).toHaveBeenCalledWith('billing.balance_updated', expect.objectContaining({
+      tenant_id: 'tenant-001',
+      reservation_id: 'res-001',
+      total_balance: 500,
+    }));
   });
 });
 

@@ -21,9 +21,6 @@ const linkRules = [
   body('role_id').isUUID().withMessage('role_id inválido'),
 ];
 
-// ── IMPORTANT: specific static paths MUST come before /:id ──────────────────
-// Express matches routes in declaration order. If /:id is declared first,
-// it captures "link-tenant" as a param and /:id/tenants never matches.
 
 // GET    /users                    — list employees of current tenant
 // POST   /users                    — create employee

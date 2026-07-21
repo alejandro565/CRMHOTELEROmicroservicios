@@ -7,8 +7,10 @@ jest.mock('../src/models', () => {
     destroy: jest.fn().mockResolvedValue(true),
   };
   return {
-    Room:     { findOne: jest.fn(), count: jest.fn(), bulkCreate: jest.fn(), findAll: jest.fn() },
+    Room:     { findOne: jest.fn(), count: jest.fn(), bulkCreate: jest.fn(), findAll: jest.fn(), create: jest.fn() },
     RoomType: { findOne: jest.fn().mockResolvedValue(mockRoomType) },
+    LendableItem: { findOne: jest.fn() },
+    ItemInventory: { findOne: jest.fn() },
     RoomIncidentLog: { count: jest.fn().mockResolvedValue(0) },
     ROOM_STATUS: { CLEAN: 'CLEAN', DIRTY: 'DIRTY', MAINTENANCE: 'MAINTENANCE', OCCUPIED: 'OCCUPIED' },
     _mocks: { mockRoom, mockRoomType },
@@ -17,11 +19,15 @@ jest.mock('../src/models', () => {
 
 jest.mock('../src/config/rabbitmq', () => ({ publishEvent: jest.fn() }));
 
-const { Room, RoomType, ROOM_STATUS, _mocks } = require('../src/models');
+const { Room, RoomType, LendableItem, ItemInventory, ROOM_STATUS, _mocks } = require('../src/models');
 const { publishEvent } = require('../src/config/rabbitmq');
 const roomService = require('../src/services/room.service');
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  LendableItem.findOne.mockResolvedValue(null);
+  ItemInventory.findOne.mockResolvedValue(null);
+});
 
 describe('createRoom()', () => {
   it('creates a room when number is unique', async () => {
@@ -70,23 +76,28 @@ describe('updateRoomStatus()', () => {
 });
 
 describe('massCreateRooms()', () => {
-  it('throws INVALID_RANGE when from > to', async () => {
+  it('throws INVALID_COUNT when count is 0 or negative', async () => {
     await expect(
-      roomService.massCreateRooms({ tenant_id: 'tenant-001', room_type_id: 'rt-001', floor: 1, from: 110, to: 100 })
-    ).rejects.toMatchObject({ code: 'INVALID_RANGE' });
+      roomService.massCreateRooms({ tenant_id: 'tenant-001', room_type_id: 'rt-001', prefix: '1', start: 1, count: 0 })
+    ).rejects.toMatchObject({ code: 'INVALID_COUNT' });
   });
 
   it('bulk-creates rooms in range', async () => {
-    Room.bulkCreate = jest.fn().mockResolvedValue(new Array(5).fill({}));
+    RoomType.findOne.mockResolvedValueOnce(_mocks.mockRoomType);
+    Room.bulkCreate.mockResolvedValue(new Array(5).fill({}));
 
     const result = await roomService.massCreateRooms({
-      tenant_id: 'tenant-001', room_type_id: 'rt-001', floor: 1, from: 101, to: 105,
+      tenant_id: 'tenant-001', room_type_id: 'rt-001', prefix: '1', start: 1, count: 5,
     });
 
     expect(Room.bulkCreate).toHaveBeenCalledWith(
-      expect.arrayContaining([expect.objectContaining({ number: '101' }), expect.objectContaining({ number: '105' })]),
+      expect.arrayContaining([
+        expect.objectContaining({ number: '11' }),
+        expect.objectContaining({ number: '15' }),
+      ]),
       { ignoreDuplicates: true }
     );
     expect(result.requested).toBe(5);
+    expect(result.created).toBe(5);
   });
 });

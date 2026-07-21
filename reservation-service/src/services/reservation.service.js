@@ -22,10 +22,36 @@ function _nights(checkIn, checkOut) {
   return Math.round(ms / (1000 * 60 * 60 * 24));
 }
 
-function _calcRoomPrice(rate_per_night, checkIn, checkOut, discount, occupants = 1) {
+function _roomOccupants(room) {
+  return Math.max((room.adults || 1) + (room.children || 0), 1);
+}
+
+function _calcRoomPrice(rate_per_night, checkIn, checkOut, discount = 0, occupants = 1) {
   const nights = _nights(checkIn, checkOut);
-  const base   = (rate_per_night * occupants) * nights;
-  return parseFloat((base * (1 - discount)).toFixed(2));
+  const unitPrice = rate_per_night * nights;
+  const appliedDiscount = Number(discount) || 0;
+  const total = unitPrice * occupants * (1 - appliedDiscount);
+  return parseFloat(total.toFixed(2));
+}
+
+function _roomMaxDiscount(room, discountMap = {}) {
+  if (!Array.isArray(room.guests) || room.guests.length === 0) return 0;
+  let max = 0;
+  for (const guest of room.guests) {
+    if (!guest || !guest.guest_id) continue;
+    const d = Number(discountMap[guest.guest_id] || 0);
+    if (d > max) max = d;
+  }
+  return max;
+}
+
+async function _getGuestDiscounts(guestIds, tenant_id) {
+  const uniqueGuestIds = [...new Set((guestIds || []).filter(Boolean))];
+  const results = await Promise.all(uniqueGuestIds.map(async (guestId) => {
+    const guestData = await validateGuest(guestId, tenant_id);
+    return [guestId, guestData.best_discount || 0];
+  }));
+  return Object.fromEntries(results);
 }
 
 async function _getReservation(id, tenant_id) {
@@ -71,8 +97,10 @@ async function createReservation({
   total_price_override
 }) {
   // 1. Guest validation + discount
-  const guestData      = await validateGuest(main_guest_id, tenant_id);
-  const discount       = guestData.best_discount || 0;
+  const guestData = await validateGuest(main_guest_id, tenant_id);
+  const roomGuestIds = rooms.flatMap((room) => (room.guests || []).map((g) => g.guest_id));
+  const guestDiscounts = await _getGuestDiscounts([main_guest_id, ...roomGuestIds], tenant_id);
+  const fallbackDiscount = guestDiscounts[main_guest_id] || 0;
 
   // 2. Availability check for every room (before opening transaction)
   for (const room of rooms) {
@@ -104,12 +132,19 @@ async function createReservation({
   // 3. Transaction: persist everything atomically
   const t = await sequelize.transaction();
   try {
-    // Calculate total
+    // Calculate total using room-level guest discounts when available.
     let total_price = 0;
     for (const room of rooms) {
-      total_price += _calcRoomPrice(room.rate_per_night, room.check_in_date, room.check_out_date, discount, (room.adults || 1) + (room.children || 0));
+      const roomMax = _roomMaxDiscount(room, guestDiscounts);
+      total_price += _calcRoomPrice(
+        room.rate_per_night,
+        room.check_in_date,
+        room.check_out_date,
+        roomMax,
+        _roomOccupants(room)
+      );
     }
-    
+
     if (total_price_override !== undefined && total_price_override !== null) {
       total_price = parseFloat(total_price_override);
     }
@@ -122,7 +157,7 @@ async function createReservation({
         status, 
         source, 
         total_price, 
-        discount_applied: discount, 
+        discount_applied: fallbackDiscount, 
         pending_balance: total_price, // Initialize pending balance
         notes 
       },
@@ -335,7 +370,18 @@ async function editReservation(id, tenant_id, { res_room_id, check_in_date, chec
     // Block new dates
     await blockDates(tenant_id, resRoom.room_type_id, check_in_date, check_out_date, 999, t);
 
-    const newPrice = _calcRoomPrice(resRoom.rate_per_night, check_in_date, check_out_date, reservation.discount_applied, resRoom.adults + resRoom.children);
+    const reservationGuestIds = [reservation.main_guest_id, ...reservation.rooms.flatMap((r) => (r.guests || []).map((g) => g.guest_id))];
+    const guestDiscounts = await _getGuestDiscounts(reservationGuestIds, tenant_id);
+    const fallbackDiscount = guestDiscounts[reservation.main_guest_id] || 0;
+
+    const roomMax = _roomMaxDiscount(resRoom, guestDiscounts);
+    const newPrice = _calcRoomPrice(
+      resRoom.rate_per_night,
+      check_in_date,
+      check_out_date,
+      roomMax,
+      _roomOccupants(resRoom)
+    );
     await resRoom.update({ check_in_date, check_out_date }, { transaction: t });
 
     // Recalculate total
@@ -343,7 +389,14 @@ async function editReservation(id, tenant_id, { res_room_id, check_in_date, chec
     for (const r of reservation.rooms) {
       const cin  = r.id === res_room_id ? check_in_date  : r.check_in_date;
       const cout = r.id === res_room_id ? check_out_date : r.check_out_date;
-      total_price += _calcRoomPrice(r.rate_per_night, cin, cout, reservation.discount_applied, r.adults + r.children);
+      const rMax = _roomMaxDiscount(r, guestDiscounts);
+      total_price += _calcRoomPrice(
+        r.rate_per_night,
+        cin,
+        cout,
+        rMax,
+        _roomOccupants(r)
+      );
     }
 
     const delta = total_price - Number(reservation.total_price);
@@ -449,9 +502,18 @@ async function extendStay(res_room_id, tenant_id, extra_nights) {
     });
   }
 
-  const occupantCount = Math.max(resRoom.adults + resRoom.children, resRoom.guests?.length || 1);
-  const extra_charge = parseFloat(
-    (resRoom.rate_per_night * occupantCount * extraNightsNum * (1 - resRoom.reservation.discount_applied)).toFixed(2)
+  const reservationGuestIds = [resRoom.reservation.main_guest_id, ...(resRoom.guests || []).map((g) => g.guest_id)];
+  const guestDiscounts = await _getGuestDiscounts(reservationGuestIds, tenant_id);
+  const fallbackDiscount = guestDiscounts[resRoom.reservation.main_guest_id] || 0;
+  const occupants = _roomOccupants(resRoom);
+  const roomDiscounts = _roomGuestDiscounts(resRoom, guestDiscounts);
+  const extra_charge = _calcRoomPrice(
+    resRoom.rate_per_night,
+    resRoom.check_out_date,
+    new_checkout_str,
+    roomDiscounts,
+    occupants,
+    fallbackDiscount
   );
 
   const t = await sequelize.transaction();
@@ -674,7 +736,10 @@ async function relocateRoom(resRoomId, tenant_id, { room_type_id, room_type_name
     const typeId = room_type_id || resRoom.room_type_id;
     
     const occupantCount = Math.max(resRoom.adults + resRoom.children, resRoom.guests?.length || 1);
-    const oldPrice = _calcRoomPrice(resRoom.rate_per_night, resRoom.check_in_date, resRoom.check_out_date, resRoom.reservation.discount_applied, occupantCount);
+    const reservationGuestIds = [resRoom.reservation.main_guest_id, ...(resRoom.guests || []).map((g) => g.guest_id)];
+    const guestDiscounts = await _getGuestDiscounts(reservationGuestIds, tenant_id);
+    const roomMax = _roomMaxDiscount(resRoom, guestDiscounts);
+    const oldPrice = _calcRoomPrice(resRoom.rate_per_night, resRoom.check_in_date, resRoom.check_out_date, roomMax, occupantCount);
     
     // Always release old dates and block new ones to ensure consistency, even if type is the same but dates changed
     await releaseDates(tenant_id, resRoom.room_type_id, resRoom.check_in_date, resRoom.check_out_date, t);
@@ -688,7 +753,7 @@ async function relocateRoom(resRoomId, tenant_id, { room_type_id, room_type_name
     await blockDates(tenant_id, typeId, cin, cout, 999, t);
 
     const newRate = rate_per_night !== undefined ? rate_per_night : resRoom.rate_per_night;
-    const newPrice = _calcRoomPrice(newRate, cin, cout, resRoom.reservation.discount_applied, occupantCount);
+    const newPrice = _calcRoomPrice(newRate, cin, cout, roomMax, occupantCount);
     
     await resRoom.update({
       room_type_id: typeId,

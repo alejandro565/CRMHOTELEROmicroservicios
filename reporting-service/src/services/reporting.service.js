@@ -12,6 +12,26 @@ function internalHeaders() {
 const BILLING_URL     = process.env.BILLING_SERVICE_URL     || 'http://billing-service:3007';
 const RESERVATION_URL = process.env.RESERVATION_SERVICE_URL || 'http://reservation-service:3005';
 
+async function fetchBillingSummary(tenant_id, { from, to } = {}) {
+  const dateFrom = from || _daysAgo(30);
+  const dateTo   = to   || new Date().toISOString().split('T')[0];
+  const qs = `tenant_id=${tenant_id}&from=${dateFrom}&to=${dateTo}`;
+
+  try {
+    const res = await axios.get(`${BILLING_URL}/internal/summary?${qs}`, { headers: internalHeaders() });
+    return res.data || {};
+  } catch (err) {
+    console.error('[ReportingService] billing summary error:', err.message);
+    return null;
+  }
+}
+
+function normalizeDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().split('T')[0];
+  return String(value).slice(0, 10);
+}
+
 // ─── Dashboard KPIs ───────────────────────────────────────────────────────────
 
 /**
@@ -175,7 +195,49 @@ async function getSalesReport(tenant_id, { from, to, category } = {}) {
   if (to)   where.date[Op.lte] = to;
   if (category) where.category = category;
 
-  const rows = await RevenueStats.findAll({ where, order: [['date', 'ASC']] });
+  const projectionRows = await RevenueStats.findAll({ where, order: [['date', 'ASC']] });
+
+  let rows = projectionRows;
+  if (!category) {
+    const billingSummary = await fetchBillingSummary(tenant_id, { from, to });
+    const dailyRows = new Map();
+
+    projectionRows.forEach((row) => {
+      const date = normalizeDate(row.date);
+      if (!dailyRows.has(date)) {
+        dailyRows.set(date, {
+          date,
+          total_revenue: 0,
+          adr: 0,
+          revpar: 0,
+          category: row.category || 'ROOM',
+        });
+      }
+      const item = dailyRows.get(date);
+      item.total_revenue += Number(row.total_revenue || 0);
+      if (!item.adr && Number(row.adr || 0) > 0) item.adr = Number(row.adr || 0);
+      if (!item.revpar && Number(row.revpar || 0) > 0) item.revpar = Number(row.revpar || 0);
+    });
+
+    if (billingSummary?.daily?.length) {
+      billingSummary.daily.forEach((daily) => {
+        const date = normalizeDate(daily.date);
+        if (!dailyRows.has(date)) {
+          dailyRows.set(date, {
+            date,
+            total_revenue: 0,
+            adr: 0,
+            revpar: 0,
+            category: 'ROOM',
+          });
+        }
+        const item = dailyRows.get(date);
+        item.total_revenue += Number(daily.total_revenue || 0);
+      });
+    }
+
+    rows = Array.from(dailyRows.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }
 
   const grand_total = rows.reduce((s, r) => s + Number(r.total_revenue), 0);
   return {

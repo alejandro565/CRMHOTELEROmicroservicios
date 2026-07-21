@@ -1,4 +1,64 @@
 import React, { useMemo, useState, useRef } from 'react';
+import { Moon, Sun } from 'lucide-react';
+
+const GRAPH_THEMES = {
+  day: {
+    containerBg: '#f8fafc',
+    svgBg: '#e2e8f0',
+    panelBg: 'rgba(255,255,255,0.94)',
+    panelHeaderBg: '#e2e8f0',
+    panelText: '#0f172a',
+    panelBorder: '#cbd5e1',
+    text: '#0f172a',
+    mutedText: '#475569',
+    nodeFill: '#ffffff',
+    nodeOffline: '#d1d5db',
+    nodeSelected: '#2563eb',
+    nodeHighlight: '#38bdf8',
+    nodeStroke: '#94a3b8',
+    edgeDependency: '#0f766e',
+    edgeEvent: '#8b5cf6',
+    edgeLabel: '#334155',
+    markerDependency: '#0f766e',
+    markerEvent: '#8b5cf6',
+    badgeBg: '#f59e0b',
+    badgeText: '#000000',
+    tooltipBg: '#ffffff',
+    tooltipBorder: '#cbd5e1',
+    tooltipText: '#0f172a',
+    buttonBg: '#e2e8f0',
+    buttonText: '#0f172a',
+    buttonHoverBg: '#cbd5e1',
+  },
+  night: {
+    containerBg: '#020617',
+    svgBg: '#0f172a',
+    panelBg: 'rgba(15,23,42,0.95)',
+    panelHeaderBg: '#0f172a',
+    panelText: '#f8fafc',
+    panelBorder: '#334155',
+    text: '#f8fafc',
+    mutedText: '#94a3b8',
+    nodeFill: '#0f172a',
+    nodeOffline: '#3f3f46',
+    nodeSelected: '#1d4ed8',
+    nodeHighlight: '#075985',
+    nodeStroke: '#334155',
+    edgeDependency: '#0f766e',
+    edgeEvent: '#8b5cf6',
+    edgeLabel: '#cbd5e1',
+    markerDependency: '#0f766e',
+    markerEvent: '#8b5cf6',
+    badgeBg: '#f59e0b',
+    badgeText: '#000000',
+    tooltipBg: '#1f2937',
+    tooltipBorder: '#334155',
+    tooltipText: '#f8fafc',
+    buttonBg: '#1f2937',
+    buttonText: '#f8fafc',
+    buttonHoverBg: '#334155',
+  },
+};
 
 const DEFAULT_NODE_LAYOUT = {
   frontend: { x: 40, y: 30, width: 190, height: 110 },
@@ -115,9 +175,11 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const ZOOM_MIN = 0.4;
   const ZOOM_MAX = 2.8;
-
+ 
   // Legend filter state: null => show all, otherwise 'dependency' | 'event' | 'shared'
   const [activeLegend, setActiveLegend] = useState(null);
+  const [graphMode, setGraphMode] = useState('night');
+  const theme = GRAPH_THEMES[graphMode] || GRAPH_THEMES.night;
 
   const zoomTo = (next) => {
     const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next));
@@ -140,6 +202,10 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
 
   const toggleLegend = (type) => {
     setActiveLegend((cur) => (cur === type ? null : type));
+  };
+
+  const toggleGraphMode = () => {
+    setGraphMode((current) => (current === 'night' ? 'day' : 'night'));
   };
 
   const graphData = useMemo(() => {
@@ -238,7 +304,7 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
     return { nodes, edges };
   }, [servicesData, nodeLayout]);
 
-  const getEdgeColor = (type) => (type === 'event' ? '#8b5cf6' : '#0f766e');
+  const getEdgeColor = (type, theme) => (type === 'event' ? theme.markerEvent : theme.markerDependency);
 
   // Pointer events for dragging
   const handlePointerDown = (e, nodeId) => {
@@ -449,15 +515,15 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
   };
 
   return (
-    <div ref={containerRef} className="rounded-[28px] border border-surface-200 bg-white shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-surface-100 bg-surface-50 flex items-center justify-between gap-4 flex-wrap">
+    <div ref={containerRef} className="rounded-[28px] border border-surface-200 shadow-sm overflow-hidden" style={{ backgroundColor: theme.containerBg }}>
+      <div className="px-5 py-4 border-b border-surface-100 flex items-center justify-between gap-4 flex-wrap" style={{ backgroundColor: theme.panelBg }}>
         <div>
-          <h2 className="font-bold text-surface-900 text-sm">Grafo de microservicios</h2>
-          <p className="text-[11px] text-surface-500 mt-1">
+          <h2 className="font-bold text-sm" style={{ color: theme.text }}>Grafo de microservicios</h2>
+          <p className="text-[11px] mt-1" style={{ color: theme.mutedText }}>
             Dependencias HTTP + eventos RabbitMQ. Arrastra nodos para reorganizar y haz click en una conexión para resaltar los servicios involucrados.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3 items-center text-[10px] font-semibold text-surface-600">
+        <div className="flex flex-wrap gap-3 items-center text-[10px] font-semibold" style={{ color: theme.text }}>
           <div className="inline-flex items-center gap-2">
             <button
               onClick={() => toggleLegend('dependency')}
@@ -466,7 +532,7 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
               HTTP
             </button>
-
+ 
             <button
               onClick={() => toggleLegend('event')}
               className={`inline-flex items-center gap-1.5 px-2 py-1 rounded ${activeLegend === 'event' ? 'bg-violet-600 text-white' : 'bg-white/5 text-surface-600'}`}
@@ -474,7 +540,7 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
               <span className="w-2.5 h-2.5 rounded-full bg-violet-500"></span>
               Evento
             </button>
-
+ 
             <button
               onClick={() => toggleLegend('shared')}
               className={`inline-flex items-center gap-1.5 px-2 py-1 rounded ${activeLegend === 'shared' ? 'bg-amber-600 text-black' : 'bg-white/5 text-surface-600'}`}
@@ -483,7 +549,18 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
               Compartidas
             </button>
           </div>
-
+ 
+          <div className="inline-flex items-center gap-2 ml-3">
+            <button
+              onClick={toggleGraphMode}
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-xl border border-white/10"
+              style={{ backgroundColor: theme.buttonBg, color: theme.buttonText }}
+            >
+              {graphMode === 'night' ? <Sun size={14} /> : <Moon size={14} />}
+              {graphMode === 'night' ? 'Modo Día' : 'Modo Noche'}
+            </button>
+          </div>
+ 
           <div className="inline-flex items-center gap-2 ml-3">
             <button onClick={zoomOut} className="px-2 py-1 bg-white/5 rounded">−</button>
             <div className="px-2 py-1 bg-white/3 rounded font-mono">x{zoom.toFixed(2)}</div>
@@ -493,7 +570,7 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
         </div>
       </div>
 
-      <div className="p-3 bg-slate-950/95 relative">
+      <div className="p-3 relative" style={{ backgroundColor: theme.svgBg }}>
         <svg
           ref={svgRef}
           viewBox="0 0 1260 660"
@@ -505,10 +582,10 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
         >
           <defs>
             <marker id="arrow-dependency" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-              <path d="M0,0 L0,6 L9,3 z" fill="#0f766e" />
+              <path d="M0,0 L0,6 L9,3 z" fill={theme.markerDependency} />
             </marker>
             <marker id="arrow-event" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-              <path d="M0,0 L0,6 L9,3 z" fill="#8b5cf6" />
+              <path d="M0,0 L0,6 L9,3 z" fill={theme.markerEvent} />
             </marker>
           </defs>
 
@@ -528,7 +605,7 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
 
             const isHighlighted = highlightedEdgeKey === edge.key;
             const hasShared = Array.isArray(edge.sharedRoutes) && edge.sharedRoutes.length > 0;
-            const lineColor = isHighlighted ? '#f59e0b' : hasShared ? '#f59e0b' : getEdgeColor(edge.type);
+            const lineColor = isHighlighted ? theme.badgeBg : hasShared ? theme.badgeBg : getEdgeColor(edge.type, theme);
 
             const isVisible = !activeLegend
               || (activeLegend === 'shared' && hasShared)
@@ -558,8 +635,8 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
                 {/* Small badge for shared routes */}
                 {hasShared && (
                   <g>
-                    <circle cx={midX + 18} cy={midY - 14} r={12} fill="#f59e0b" stroke="#fff" strokeWidth={1} opacity={0.98} />
-                    <text x={midX + 18} y={midY - 10} fill="#000" fontSize="10" fontWeight="700" textAnchor="middle" fontFamily="monospace">
+                <circle cx={midX + 18} cy={midY - 14} r={12} fill={theme.badgeBg} stroke={theme.panelBorder} strokeWidth={1} opacity={0.98} />
+                    <text x={midX + 18} y={midY - 10} fill={theme.badgeText} fontSize="10" fontWeight="700" textAnchor="middle" fontFamily="monospace">
                       {edge.sharedRoutes.length}
                     </text>
                   </g>
@@ -568,7 +645,7 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
                 <text
                   x={midX}
                   y={midY}
-                  fill="#cbd5e1"
+                  fill={theme.edgeLabel}
                   fontSize="10"
                   fontFamily="monospace"
                   textAnchor="middle"
@@ -579,16 +656,15 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
               </g>
             );
           })}
-
           {/* Nodes */}
           {graphData.nodes.map((node) => {
             const isSelected = selectedService === node.id;
             const isHighlighted = highlightedNodes.has(node.id);
             const nodeFill = node.status === 'online'
-              ? '#0f172a'
+              ? theme.nodeFill
               : node.status === 'offline'
-                ? '#3f3f46'
-                : '#1e293b';
+                ? theme.nodeOffline
+                : theme.nodeFill;
 
             return (
               <g
@@ -603,15 +679,15 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
                   width={node.width}
                   height={node.height}
                   rx="18"
-                  fill={isSelected ? '#1d4ed8' : isHighlighted ? '#075985' : nodeFill}
-                  stroke={isSelected ? '#60a5fa' : '#334155'}
+                  fill={isSelected ? theme.nodeSelected : isHighlighted ? theme.nodeHighlight : nodeFill}
+                  stroke={isSelected ? '#60a5fa' : theme.nodeStroke}
                   strokeWidth={isSelected ? 2.5 : 1.2}
                   opacity={0.97}
                 />
                 <text
                   x={node.x + 18}
                   y={node.y + 24}
-                  fill="#f8fafc"
+                  fill={theme.text}
                   fontSize="12"
                   fontWeight="700"
                 >
@@ -620,7 +696,7 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
                 <text
                   x={node.x + 18}
                   y={node.y + 44}
-                  fill="#93c5fd"
+                  fill={theme.mutedText}
                   fontSize="11"
                   fontWeight="600"
                 >
@@ -629,7 +705,7 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
                 <text
                   x={node.x + 18}
                   y={node.y + 63}
-                  fill="#c4b5fd"
+                  fill={theme.mutedText}
                   fontSize="11"
                   fontWeight="600"
                 >
@@ -659,10 +735,11 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
               onPointerUp={(e) => handlePanelPointerUp(e)}
               onWheel={(e) => handlePanelWheel(e)}
             >
-              <div className="bg-slate-900/95 text-white rounded-lg p-0 border border-white/5 text-sm shadow-lg overflow-hidden">
+              <div className="rounded-lg p-0 border text-sm shadow-lg overflow-hidden" style={{ backgroundColor: theme.panelBg, borderColor: theme.panelBorder }}>
                 <div
-                  className="flex items-center justify-between gap-3 px-3 py-2 bg-slate-800 cursor-grab select-none"
+                  className="flex items-center justify-between gap-3 px-3 py-2 cursor-grab select-none"
                   onPointerDown={(e) => handlePanelPointerDown(e)}
+                  style={{ backgroundColor: theme.panelHeaderBg, color: theme.panelText }}
                 >
                   <div className="text-sm font-semibold">
                     {edgeDetails ? `Conexión: ${edgeDetails.edge.label}` : `Servicio: ${nodeDetails.node}`}
@@ -684,7 +761,7 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
                   </div>
                 </div>
 
-                <div className="p-3 max-h-[260px] overflow-auto">
+                <div className="p-3 max-h-[260px] overflow-auto" style={{ color: theme.panelText }}>
                   {edgeDetails && (
                     <div>
                       <div className="text-xs text-slate-300 mb-2">{edgeDetails.edge.source} → {edgeDetails.edge.target} ({edgeDetails.edge.type})</div>
@@ -775,18 +852,18 @@ export default function ServiceGraph({ servicesData, selectedService, onSelect }
           {/* Hover tooltip for quick shared-routes preview */}
           {hoverEdge && hoverEdge.sharedRoutes && hoverEdge.sharedRoutes.length > 0 && (
             <div
-          className="absolute z-60"
-          style={{ left: `${hoverEdge.pos.left}px`, top: `${hoverEdge.pos.top}px`, width: 260 }}
-          onWheel={(e) => { e.stopPropagation(); }}
+              className="absolute z-60"
+              style={{ left: `${hoverEdge.pos.left}px`, top: `${hoverEdge.pos.top}px`, width: 260 }}
+              onWheel={(e) => { e.stopPropagation(); }}
             >
-          <div className="bg-slate-700 text-white rounded-md p-2 text-xs shadow-lg border border-white/5">
-            <div className="font-semibold mb-1">Rutas compartidas ({hoverEdge.sharedRoutes.length})</div>
-            <ul className="max-h-36 overflow-auto space-y-1">
-              {hoverEdge.sharedRoutes.map((r, i) => (
-                <li key={i} className="font-mono break-words">{r}</li>
-              ))}
-            </ul>
-          </div>
+              <div className="rounded-md p-2 text-xs shadow-lg border" style={{ backgroundColor: theme.tooltipBg, color: theme.tooltipText, borderColor: theme.tooltipBorder }}>
+                <div className="font-semibold mb-1">Rutas compartidas ({hoverEdge.sharedRoutes.length})</div>
+                <ul className="max-h-36 overflow-auto space-y-1">
+                  {hoverEdge.sharedRoutes.map((r, i) => (
+                    <li key={i} className="font-mono break-words">{r}</li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
 

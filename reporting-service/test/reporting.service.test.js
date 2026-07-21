@@ -1,3 +1,7 @@
+jest.mock('axios', () => ({
+  get: jest.fn(),
+}));
+
 jest.mock('../src/models/index', () => {
   const mockStats = [
     { date: '2025-01-10', total_rooms: 20, occupied_rooms: 15, occupancy_percentage: 75.00 },
@@ -22,6 +26,7 @@ jest.mock('../src/models/index', () => {
   };
 });
 
+const axios = require('axios');
 const { DailyOccupancyStats, RevenueStats, _mocks } = require('../src/models/index');
 const reportingService = require('../src/services/reporting.service');
 
@@ -57,6 +62,33 @@ describe('syncRevenue()', () => {
       revpar:        225,    // 4500 / 20
       category:      'ROOM',
     }));
+  });
+});
+
+describe('getSalesReport()', () => {
+  it('merges projection rows with billing daily payments', async () => {
+    axios.get.mockResolvedValue({
+      data: {
+        daily: [
+          { date: '2025-01-10', total_revenue: 5000 },
+          { date: '2025-01-12', total_revenue: 1200 },
+        ],
+      },
+    });
+
+    const result = await reportingService.getSalesReport('tenant-001', {
+      from: '2025-01-10',
+      to: '2025-01-12',
+    });
+
+    expect(result.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ date: '2025-01-10', total_revenue: 9500 }),
+        expect.objectContaining({ date: '2025-01-11', total_revenue: 5400 }),
+        expect.objectContaining({ date: '2025-01-12', total_revenue: 1200 }),
+      ])
+    );
+    expect(result.grand_total).toBe(16100);
   });
 });
 

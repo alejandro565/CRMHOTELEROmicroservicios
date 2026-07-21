@@ -9,6 +9,14 @@ jest.mock('../src/models', () => {
     status: 'ACTIVE',
     active_modules: ['CRM', 'BILLING'],
   };
+  const mockUserTenant = {
+    user_id: 'user-001',
+    tenant_id: 'tenant-001',
+    role_id: 'role-001',
+    work_schedule: null,
+    tenant: mockTenant,
+    role: mockRole,
+  };
   const mockUser = {
     id: 'user-001',
     email: 'admin@hotel.com',
@@ -29,11 +37,12 @@ jest.mock('../src/models', () => {
       findOne: jest.fn(),
       update: jest.fn(),
     },
+    UserTenant: { findAll: jest.fn(), findOne: jest.fn() },
     Role: {},
     Permission: {},
     LocalTenant: {},
     TENANT_STATUS: { ACTIVE: 'ACTIVE', SUSPENDED: 'SUSPENDED', INACTIVE: 'INACTIVE' },
-    _mocks: { mockUser, mockRole, mockTenant },
+    _mocks: { mockUser, mockRole, mockTenant, mockUserTenant },
   };
 });
 
@@ -45,10 +54,14 @@ jest.mock('../src/config/jwt', () => ({
 }));
 
 const bcrypt = require('bcryptjs');
-const { User, RefreshToken, TENANT_STATUS, _mocks } = require('../src/models');
+const { User, RefreshToken, UserTenant, TENANT_STATUS, _mocks } = require('../src/models');
 const authService = require('../src/services/auth.service');
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  UserTenant.findAll.mockResolvedValue([_mocks.mockUserTenant]);
+  UserTenant.findOne.mockResolvedValue(_mocks.mockUserTenant);
+});
 
 describe('login()', () => {
   it('retorna tokens e información de usuario con credenciales válidas', async () => {

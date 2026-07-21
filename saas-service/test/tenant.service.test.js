@@ -22,6 +22,8 @@ jest.mock('../src/models', () => {
   return {
     Tenant: {
       findOne: jest.fn(),
+      findAll: jest.fn(),
+      count: jest.fn(),
       create: jest.fn().mockResolvedValue(mockTenant),
       destroy: jest.fn().mockResolvedValue(1),
     },
@@ -38,34 +40,35 @@ jest.mock('../src/services/plan.service');
 jest.mock('../src/events/publisher');
 
 const { Tenant, TENANT_STATUS, _mockPlan, _mockTenant } = require('../src/models');
-const { setupTenantAdmin } = require('../src/services/authClient.service');
+const { setupTenantForOwner } = require('../src/services/authClient.service');
 const { getActiveModulesForPlan } = require('../src/services/plan.service');
 const { publishTenantProvisioned, publishTenantSuspended } = require('../src/events/publisher');
 const tenantService = require('../src/services/tenant.service');
 
 beforeEach(() => jest.clearAllMocks());
 
-describe('provisionNewHotel', () => {
+describe('createHotel', () => {
   const validInput = {
-    plan_id: 'plan-uuid-001',
+    owner_id: 'owner-uuid-001',
+    owner_email: 'gerente@hotelparaiso.com',
     name: 'Hotel Paraíso',
     tax_id: '1234567',
-    owner_email: 'gerente@hotelparaiso.com',
-    owner_full_name: 'Pablo Pérez',
   };
 
   it('should create tenant and publish event on success', async () => {
     Tenant.findOne.mockResolvedValue(null); // no NIT duplicate
+    Tenant.findAll.mockResolvedValue([{ plan: _mockPlan }]);
+    Tenant.count.mockResolvedValue(1);
     getActiveModulesForPlan.mockResolvedValue({
       plan: _mockPlan,
       active_modules: ['CRM', 'BILLING'],
     });
-    setupTenantAdmin.mockResolvedValue({ success: true });
+    setupTenantForOwner.mockResolvedValue({ success: true });
 
-    const result = await tenantService.provisionNewHotel(validInput);
+    const result = await tenantService.createHotel(validInput);
 
     expect(Tenant.create).toHaveBeenCalledTimes(1);
-    expect(setupTenantAdmin).toHaveBeenCalledTimes(1);
+    expect(setupTenantForOwner).toHaveBeenCalledTimes(1);
     expect(publishTenantProvisioned).toHaveBeenCalledTimes(1);
     expect(result.tenant_id).toBe(_mockTenant.id);
     expect(result.plan.modules).toEqual(['CRM', 'BILLING']);
@@ -74,7 +77,7 @@ describe('provisionNewHotel', () => {
   it('should throw TAX_ID_DUPLICATE if NIT already exists', async () => {
     Tenant.findOne.mockResolvedValue(_mockTenant);
 
-    await expect(tenantService.provisionNewHotel(validInput)).rejects.toMatchObject({
+    await expect(tenantService.createHotel(validInput)).rejects.toMatchObject({
       code: 'TAX_ID_DUPLICATE',
       status: 409,
     });
@@ -83,13 +86,15 @@ describe('provisionNewHotel', () => {
 
   it('should rollback tenant if auth-service fails', async () => {
     Tenant.findOne.mockResolvedValue(null);
+    Tenant.findAll.mockResolvedValue([{ plan: _mockPlan }]);
+    Tenant.count.mockResolvedValue(1);
     getActiveModulesForPlan.mockResolvedValue({
       plan: _mockPlan,
       active_modules: ['CRM'],
     });
-    setupTenantAdmin.mockRejectedValue({ code: 'EMAIL_IN_USE', status: 409 });
+    setupTenantForOwner.mockRejectedValue({ code: 'EMAIL_IN_USE', status: 409 });
 
-    await expect(tenantService.provisionNewHotel(validInput)).rejects.toBeDefined();
+    await expect(tenantService.createHotel(validInput)).rejects.toBeDefined();
     expect(Tenant.destroy).toHaveBeenCalledWith({ where: { id: _mockTenant.id } });
     expect(publishTenantProvisioned).not.toHaveBeenCalled();
   });

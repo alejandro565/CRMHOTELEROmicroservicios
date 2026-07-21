@@ -81,14 +81,19 @@ export default function OccupancyCalendarPage() {
     if (!Array.isArray(reservations)) return map;
     
     reservations.forEach(res => {
-      if (!res || !['CONFIRMED', 'IN_HOUSE', 'PRE_CHECKIN'].includes(res.status)) return;
+      if (!res) return;
+      const st = (res.status || '').toString().toUpperCase();
+      const visible = ['CONFIRMED', 'IN_HOUSE', 'PRE_CHECKIN', 'RESERVED', 'RESERVADO'];
+      if (!visible.includes(st)) return;
+      // Map backend synonyms to PRE_CHECKIN so they appear with the reserved color/label in the calendar
+      const mappedStatus = (st === 'RESERVED' || st === 'RESERVADO') ? 'PRE_CHECKIN' : st;
       res.rooms?.forEach(rm => {
         if (!rm || !rm.room_id) return;
         if (!map[rm.room_id]) map[rm.room_id] = [];
         map[rm.room_id].push({
           ...rm,
           reservation_id: res.id,
-          status: res.status,
+          status: mappedStatus,
           main_guest_name: res.main_guest_name,
           total_rooms: res.rooms?.length || 1
         });
